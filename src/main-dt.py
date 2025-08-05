@@ -1,15 +1,18 @@
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
 import joblib
 import mlflow
 
-# Set MLflow tracking URI to use local file storage
-mlflow.set_tracking_uri("file:./mlruns")
+# Set MLflow tracking URI to local mlruns directory
+# tracking server allows to store artifacts, parameters, and metrics
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
 # Load the ticket dataset
 df = pd.read_csv('data/raw/all_tickets_processed_improved_v3.csv')
@@ -48,7 +51,7 @@ pipeline = Pipeline([
     )),
     # Decision Tree classifier
     ('classifier', DecisionTreeClassifier(
-        max_depth=5,          # Limit depth to prevent overfitting
+        max_depth=7,          # Limit depth to prevent overfitting
         min_samples_split=10  # Minimum samples to split an internal node
     ))
 ])
@@ -78,6 +81,21 @@ with mlflow.start_run():
         'test_size': 0.2
     })
     
+    #log confusion matrix
+    cm=confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(10, 7))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.savefig('visualizations/confusion_matrix.png')
+
+    #log image
+    mlflow.log_artifact('visualizations/confusion_matrix.png')
+    #log code
+    mlflow.log_artifact(__file__)
+    #log model
+    mlflow.sklearn.log_model(pipeline, "model")
     # Log metrics
     mlflow.log_metric('accuracy', accuracy)
     
