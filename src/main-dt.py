@@ -3,7 +3,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
 import joblib
 import mlflow
@@ -46,10 +46,10 @@ pipeline = Pipeline([
         max_df=0.95,            # Ignore terms in more than 95% of documents
         min_df=2                # Ignore terms in less than 2 documents
     )),
-    # Logistic Regression classifier
-    ('classifier', LogisticRegression(
-        max_iter=max_iter,          # Iterations for convergence
-        C=C                   # Regularization parameter to prevent overfitting
+    # Decision Tree classifier
+    ('classifier', DecisionTreeClassifier(
+        max_depth=5,          # Limit depth to prevent overfitting
+        min_samples_split=10  # Minimum samples to split an internal node
     ))
 ])
 
@@ -66,13 +66,15 @@ y_pred = pipeline.predict(X_test)
 accuracy = accuracy_score(y_test, y_pred)
 print(f'Accuracy: {accuracy * 100:.2f}%')
 
+mlflow.set_experiment("ticket-dt")
+
 # Log experiment with MLflow (after training)
 with mlflow.start_run():
     # Log parameters
     mlflow.log_params({
         'tfidf_max_features': max_features,
-        'classifier_max_iter': max_iter,
-        'classifier_C': C,
+        'classifier_max_depth': 5,
+        'classifier_min_samples_split': 10,
         'test_size': 0.2
     })
     
