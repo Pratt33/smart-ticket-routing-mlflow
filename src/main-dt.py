@@ -97,10 +97,22 @@ with mlflow.start_run():
     mlflow.log_artifact('visualizations/confusion_matrix.png')
     #log code
     mlflow.log_artifact(__file__)
-    #log model
-    mlflow.sklearn.log_model(pipeline, "model")
+    
+    # Industry workaround for limited MLflow backends
+    # Save model as pickle and log as artifact
+    import tempfile
+    import os
+    
+    temp_model_path = 'temp_model.pkl'
+    joblib.dump(pipeline, temp_model_path)
+    mlflow.log_artifact(temp_model_path, "model")
+    os.remove(temp_model_path)
+    
     # Log metrics
     mlflow.log_metric('accuracy', accuracy)
+
+    mlflow.set_tag('author', 'Pratt33')
+    mlflow.set_tag('model_type', 'Decision Tree')
     
     # Note: Skipping model logging due to MLflow local storage issues
     # Model is saved separately using joblib below
