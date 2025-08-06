@@ -10,9 +10,12 @@ from sklearn.metrics import accuracy_score, confusion_matrix
 import joblib
 import mlflow
 
+import dagshub
+dagshub.init(repo_owner='Pratt33', repo_name='smart-ticket-routing-mlflow', mlflow=True)
+
 # Set MLflow tracking URI to local mlruns directory
 # tracking server allows to store artifacts, parameters, and metrics
-mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_tracking_uri("https://dagshub.com/Pratt33/smart-ticket-routing-mlflow.mlflow")
 
 # Load the ticket dataset
 df = pd.read_csv('data/raw/all_tickets_processed_improved_v3.csv')
