@@ -15,7 +15,10 @@ dagshub.init(repo_owner='Pratt33', repo_name='smart-ticket-routing-mlflow', mlfl
 
 # Set MLflow tracking URI to local mlruns directory
 # tracking server allows to store artifacts, parameters, and metrics
-mlflow.set_tracking_uri("https://dagshub.com/Pratt33/smart-ticket-routing-mlflow.mlflow")
+#mlflow.set_tracking_uri("file:./mlruns")#local storage for MLflow
+#mlflow.set_tracking_uri("http://localhost:5000")# local server for MLflow
+#mlflow.set_tracking_uri("https://dagshub.com/Pratt33/smart-ticket-routing-mlflow.mlflow")# dagshub server for MLflow
+mlflow.set_tracking_uri("http://ec2-3-108-54-126.ap-south-1.compute.amazonaws.com:5000/")# remote server for MLflow with aws
 
 # Load the ticket dataset
 df = pd.read_csv('data/raw/all_tickets_processed_improved_v3.csv')
@@ -36,7 +39,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     random_state=42, 
     stratify=y_encoded
 )
-max_features = 5000  # Limit vocabulary size to reduce noise
+max_features =8000  # Limit vocabulary size to reduce noise
 max_iter = 1000  # Maximum iterations for convergence in Logistic Regression
 C = 1.0  # Regularization parameter to prevent overfitting
 
@@ -54,7 +57,7 @@ pipeline = Pipeline([
     )),
     # Decision Tree classifier
     ('classifier', DecisionTreeClassifier(
-        max_depth=7,          # Limit depth to prevent overfitting
+        max_depth=10,          # Limit depth to prevent overfitting
         min_samples_split=10  # Minimum samples to split an internal node
     ))
 ])
