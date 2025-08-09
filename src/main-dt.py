@@ -82,7 +82,7 @@ with mlflow.start_run():
     # Log parameters
     mlflow.log_params({
         'tfidf_max_features': max_features,
-        'classifier_max_depth': 5,
+        'classifier_max_depth': 10,
         'classifier_min_samples_split': 10,
         'test_size': 0.2
     })
@@ -101,25 +101,30 @@ with mlflow.start_run():
     #log code
     mlflow.log_artifact(__file__)
     
-    # Industry workaround for limited MLflow backends
-    # Save model as pickle and log as artifact
-    import tempfile
-    import os
-    
-    temp_model_path = 'temp_model.pkl'
-    joblib.dump(pipeline, temp_model_path)
-    mlflow.log_artifact(temp_model_path, "model")
-    os.remove(temp_model_path)
+    # Log model using MLflow sklearn (works with cloud MLflow server)
+    mlflow.sklearn.log_model(
+        sk_model=pipeline,
+        artifact_path="model",
+        registered_model_name="ticket-classifier-dt"
+    )
     
     # Log metrics
     mlflow.log_metric('accuracy', accuracy)
 
     mlflow.set_tag('author', 'Pratt33')
     mlflow.set_tag('model_type', 'Decision Tree')
-    
-    # Note: Skipping model logging due to MLflow local storage issues
-    # Model is saved separately using joblib below
-    print("Experiment logged to MLflow successfully!")
+
+    #logging datasets
+    train_df = pd.DataFrame({'Document': X_train, 'Topic_group': label_encoder.inverse_transform(y_train)})
+    test_df = pd.DataFrame({'Document': X_test, 'Topic_group': label_encoder.inverse_transform(y_test)})
+
+    train_dataset = mlflow.data.from_pandas(train_df)
+    test_dataset = mlflow.data.from_pandas(test_df)
+
+    mlflow.log_input(train_dataset, "train")
+    mlflow.log_input(test_dataset, "validation")
+
+    print("Experiment logged to MLflow successfully")
 
 # Convert predictions back to original category names (optional for viewing)
 y_pred_labels = label_encoder.inverse_transform(y_pred)
