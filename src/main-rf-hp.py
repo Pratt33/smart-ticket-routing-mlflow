@@ -67,10 +67,16 @@ grid_search = GridSearchCV(
 
 mlflow.set_experiment('ticket-rf-hp-fast')
 
-with mlflow.start_run():
+with mlflow.start_run(run_name="grid_search") as parent:
     # Perform GridSearchCV
     grid_search.fit(X_train, y_train)
 
+    for i in range(len(grid_search.cv_results_['params'])):
+        
+        with mlflow.start_run(nested=True) as child:
+            mlflow.log_params(grid_search.cv_results_['params'][i])
+            mlflow.log_metrics({'mean_test_score': grid_search.cv_results_['mean_test_score'][i]})
+    
     # Get results
     best_params = grid_search.best_params_
     best_cv_score = grid_search.best_score_
