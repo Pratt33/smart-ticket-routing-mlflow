@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -11,9 +10,7 @@ import mlflow
 
 import dagshub
 dagshub.init(repo_owner='Pratt33', repo_name='smart-ticket-routing-mlflow', mlflow=True)
-#mlflow.set_tracking_uri("https://dagshub.com/Pratt33/smart-ticket-routing-mlflow.mlflow")# dagshub server for MLflow
-
-mlflow.set_tracking_uri("http://ec2-3-108-54-126.ap-south-1.compute.amazonaws.com:5000/")# remote server for MLflow with aws
+mlflow.set_tracking_uri("http://ec2-3-108-54-126.ap-south-1.compute.amazonaws.com:5000/")
 
 # Load the ticket dataset
 df = pd.read_csv('data/raw/all_tickets_processed_improved_v3.csv')
@@ -44,21 +41,18 @@ pipeline = Pipeline([
 
 # Parameter grid for faster execution
 param_grid = {
-    # TF-IDF parameters
     'tfidf__max_features': [5000, 8000],
-
-    # Random Forest parameters
     'classifier__n_estimators': [50, 100],
     'classifier__max_depth': [10, 20],
     'classifier__min_samples_split': [5, 10],      
     'classifier__min_samples_leaf': [1, 2]
 }
 
-# Initialize GridSearchCV with CV folds
+# Initialize GridSearchCV
 grid_search = GridSearchCV(
     pipeline,
     param_grid,
-    cv=2,                    # CV set to 2-fold
+    cv=2,
     scoring='accuracy',
     n_jobs=-1,              
     verbose=2,              
@@ -67,12 +61,12 @@ grid_search = GridSearchCV(
 
 mlflow.set_experiment('ticket-models')
 
-with mlflow.start_run(run_name="grid_search", description="Grid search for hyperparameter tuning") as parent:
+with mlflow.start_run(description="Grid search for hyperparameter tuning") as parent:
     # Perform GridSearchCV
     grid_search.fit(X_train, y_train)
 
+    # Log individual CV results as nested runs
     for i in range(len(grid_search.cv_results_['params'])):
-        
         with mlflow.start_run(nested=True) as child:
             mlflow.log_params(grid_search.cv_results_['params'][i])
             mlflow.log_metrics({'mean_test_score': grid_search.cv_results_['mean_test_score'][i]})
@@ -86,19 +80,18 @@ with mlflow.start_run(run_name="grid_search", description="Grid search for hyper
     for param, value in best_params.items():
         print(f"  {param}: {value}")
 
+    # Make predictions
     y_pred = best_model.predict(X_test)
     test_accuracy = accuracy_score(y_test, y_pred)
 
-    #log params
+    # Log parameters and metrics
     mlflow.log_params(best_params)
-
-    #log metrics
     mlflow.log_metrics({
         'best_cv_score': float(best_cv_score),
         'test_accuracy': float(test_accuracy)
     })
 
-    #log data
+    # Log datasets
     train_df = pd.DataFrame({'Document': X_train, 'Topic_group': label_encoder.inverse_transform(y_train)})
     test_df = pd.DataFrame({'Document': X_test, 'Topic_group': label_encoder.inverse_transform(y_test)})
     
@@ -108,20 +101,34 @@ with mlflow.start_run(run_name="grid_search", description="Grid search for hyper
     mlflow.log_input(train_dataset, "train")
     mlflow.log_input(test_dataset, "test")
 
-    #log source code
+    # Log source code
     mlflow.log_artifact(__file__)
 
-    #signature
-    signature = mlflow.models.infer_signature(train_df['Document'], best_model.predict(train_df['Document']))
+    # FIXED: Proper signature inference
+    # Create sample input in the exact format the model expects
+    sample_input = pd.DataFrame(X_train[:5].values, columns=["Document"])
+    
+    # Get predictions for signature inference
+    sample_predictions = best_model.predict(sample_input)
+    
+    # Infer signature with proper input/output format
+    signature = mlflow.models.infer_signature(sample_input, sample_predictions)
 
-    #log model
-    mlflow.sklearn.log_model(best_model, "rf-model", signature=signature)
+    # FIXED: Log model with proper configuration
+    model_info = mlflow.sklearn.log_model(
+        sk_model=best_model,  # Use the fitted best model
+        artifact_path="model",  # This creates the model artifact
+        signature=signature
+    )
 
-    #set tag
-    mlflow.set_tags({"author": "Pratt33"})
+    # Set tags
+    mlflow.set_tags({
+        "author": "Pratt33",
+        "model_type": "RandomForest"
+    })
 
-    print("GridSearchCV completed and logged to MLflow!")
+    print("GridSearchCV completed!")
 
-# Save best model and results
+# Save best model and results locally
 joblib.dump(best_model, 'models/best_rf_gridsearch_fast.pkl')
 joblib.dump(label_encoder, 'models/label_encoder_gridsearch_fast.pkl')
